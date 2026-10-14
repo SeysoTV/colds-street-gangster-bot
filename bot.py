@@ -1178,8 +1178,24 @@ async def aufstellung(
   )
 
 import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
-# BOT STARTEN
-TOKEN = os.getenv("DISCORD_TOKEN")
+# --- MINI-WEBSERVER FÜR RENDER (Kostenloser Web-Service Port-Fix) ---
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"CSG Bot is online!")
+
+def run_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    server.serve_forever()
+
+# Server in einem separaten Hintergrund-Thread starten, damit der Bot nicht blockiert wird
+threading.Thread(target=run_server, daemon=True).start()
+
+# --- BOT STARTEN ---
+TOKEN = os.getenv("DISCORD_TOKEN") or "MTU1OTkzNjMwOTYwOTM3Mzc5Nw.GM5WVp.mavqPTSvz82it8voW4Rtd4Of-z_evGgyNDWizQ"
 bot.run(TOKEN)
-
