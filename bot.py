@@ -1196,6 +1196,39 @@ def run_server():
 # Server in einem separaten Hintergrund-Thread starten, damit der Bot nicht blockiert wird
 threading.Thread(target=run_server, daemon=True).start()
 
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+# --- OPTIMIERTER MINI-WEBSERVER FÜR FREESLOTS & UPTIMEROBOT ---
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"CSG Bot is online!")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+
+    def do_POST(self):
+        self.send_response(200)
+        self.end_headers()
+
+    # Unterdrückt unnötige Log-Spams in den Render-Logs
+    def log_message(self, format, *args):
+        return
+
+def run_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    server.serve_forever()
+
+# Startet den Server im Hintergrund-Thread
+threading.Thread(target=run_server, daemon=True).start()
+
 # --- BOT STARTEN ---
 TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
