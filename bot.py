@@ -1197,5 +1197,5 @@ def run_server():
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- BOT STARTEN ---
-TOKEN = os.getenv("DISCORD_TOKEN") or "MTU1OTkzNjMwOTYwOTM3Mzc5Nw.GM5WVp.mavqPTSvz82it8voW4Rtd4Of-z_evGgyNDWizQ"
+TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
