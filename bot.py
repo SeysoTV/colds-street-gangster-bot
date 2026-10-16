@@ -1,5 +1,8 @@
 from datetime import datetime, time
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import os
 import sqlite3
+import threading
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -640,7 +643,6 @@ class AbgabeEintragenModal(discord.ui.Modal, title="Wochenabgabe eintragen"):
     )
 
 
-# NEU: MODAL UM EINEN WOCHENABGABE-EINTRAG ZU LÖSCHEN / WIDERRUFEN
 class AbgabeWiderrufenModal(discord.ui.Modal, title="Wochenabgabe widerrufen"):
   member_name = discord.ui.TextInput(
       label="Mitglied (Name)", placeholder="z.B. John Doe"
@@ -865,6 +867,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @tasks.loop(time=UHRZEIT_POST)
 async def tages_aufstellung_task():
+  # 2 = Mittwoch, 6 = Sonntag
+  heute_wochentag = datetime.now().weekday()
+  if heute_wochentag not in [2, 6]:
+    return
+
   channel = bot.get_channel(AUFSTELLUNG_KANAL_ID)
   if not channel:
     return
@@ -877,14 +884,14 @@ async def tages_aufstellung_task():
   datum_text = f"Heute ({heute_datum}) um 20:00 Uhr"
 
   data = AufstellungData(
-      thema="Tägliche Gang-Aufstellung",
+      thema="Gang-Aufstellung",
       datum_zeit=datum_text,
       rolle_mention=role_mention,
   )
   view = AufstellungView(data)
 
   await channel.send(
-      content=f"{role_mention} Neue Aufstellung für heute!",
+      content=f"{role_mention} 📢 **Neue Gang-Aufstellung für heute! Bitte alle abstimmen!**",
       embed=data.build_embed(),
       view=view,
   )
@@ -1177,56 +1184,35 @@ async def aufstellung(
       "Aufstellung gesendet!", ephemeral=True
   )
 
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 
-# --- MINI-WEBSERVER FÜR RENDER (Kostenloser Web-Service Port-Fix) ---
+# --- WEBSERVER FÜR RENDER (Keep-Alive) ---
 class DummyHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"CSG Bot is online!")
+
+  def do_GET(self):
+    self.send_response(200)
+    self.send_header("Content-type", "text/plain")
+    self.end_headers()
+    self.wfile.write(b"CSG Bot is online!")
+
+  def do_HEAD(self):
+    self.send_response(200)
+    self.send_header("Content-type", "text/plain")
+    self.end_headers()
+
+  def do_POST(self):
+    self.send_response(200)
+    self.end_headers()
+
+  def log_message(self, format, *args):
+    return
+
 
 def run_server():
-    port = int(os.getenv("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), DummyHandler)
-    server.serve_forever()
+  port = int(os.getenv("PORT", 10000))
+  server = HTTPServer(("0.0.0.0", port), DummyHandler)
+  server.serve_forever()
 
-# Server in einem separaten Hintergrund-Thread starten, damit der Bot nicht blockiert wird
-threading.Thread(target=run_server, daemon=True).start()
 
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
-
-# --- OPTIMIERTER MINI-WEBSERVER FÜR FREESLOTS & UPTIMEROBOT ---
-class DummyHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"CSG Bot is online!")
-
-    def do_HEAD(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-
-    def do_POST(self):
-        self.send_response(200)
-        self.end_headers()
-
-    # Unterdrückt unnötige Log-Spams in den Render-Logs
-    def log_message(self, format, *args):
-        return
-
-def run_server():
-    port = int(os.getenv("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), DummyHandler)
-    server.serve_forever()
-
-# Startet den Server im Hintergrund-Thread
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- BOT STARTEN ---
